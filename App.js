@@ -1,114 +1,125 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
-
 import React from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
-  ScrollView,
   View,
+  Platform,
+  Dimensions,
   Text,
-  StatusBar,
+  SafeAreaView,
 } from 'react-native';
+import MapView, {Marker, AnimatedRegion} from 'react-native-maps';
+import Geolocation from '@react-native-community/geolocation';
+import Permissions, {PERMISSIONS} from 'react-native-permissions';
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const {width, height} = Dimensions.get('window');
 
-const App: () => React$Node = () => {
-  return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
+const ASPECT_RATIO = width / height;
+const LATITUDE = 0;
+const LONGITUDE = -0;
+const LATITUDE_DELTA = 0.0922;
+const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
+export default class App extends React.Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      latitude: LATITUDE,
+      longitude: LONGITUDE,
+      coordinate: new AnimatedRegion({
+        latitude: LATITUDE,
+        longitude: LONGITUDE,
+        latitudeDelta: 0,
+        longitudeDelta: 0,
+      }),
+    };
+
+  componentDidMount() {
+    this.watchLocation();
+  }
+
+
+  componentWillUnmount() {
+    Geolocation.clearWatch(this.watchID);
+  }
+
+  watchLocation = () => {
+    Permissions.request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+    const {coordinate} = this.state;
+
+    this.watchID = Geolocation.watchPosition(
+      position => {
+        console.log(position);
+        const {latitude, longitude} = position.coords;
+
+        const newCoordinate = {
+          latitude,
+          longitude,
+        };
+
+        if (Platform.OS === 'android') {
+          if (this.marker) {
+            this.marker._component.animateMarkerToCoordinate(
+              newCoordinate,
+              500, // 500 is the duration to animate the marker
+            );
+          }
+        } else {
+          coordinate.timing(newCoordinate).start();
+        }
+
+        this.setState({
+          latitude,
+          longitude,
+        });
+      },
+      error => console.log(error),
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 1000,
+        distanceFilter: 10,
+      },
+    );
+  };
+
+  getMapRegion = () => ({
+    latitude: this.state.latitude,
+    longitude: this.state.longitude,
+    latitudeDelta: LATITUDE_DELTA,
+    longitudeDelta: LONGITUDE_DELTA,
+  });
+
+  render() {
+    return (
+      <SafeAreaView style={{flex: 1}}>
+        <View style={styles.container}>
+          <MapView
+            style={styles.map}
+            showUserLocation
+            followUserLocation
+            loadingEnabled
+            region={this.getMapRegion()}>
+            <Marker.Animated
+              ref={marker => {
+                this.marker = marker;
+              }}
+              coordinate={this.state.coordinate}
+            />
+          </MapView>
+        </View>
       </SafeAreaView>
-    </>
-  );
-};
+    );
+  }
+}
 
 const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
-
-export default App;
