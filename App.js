@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   View,
@@ -19,38 +19,32 @@ const LONGITUDE = -0;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-export default class App extends React.Component {
-  constructor(props) {
-    super(props);
-
-    this.state = {
+export default function App() {
+  const [latitude, setLatitude] = useState(LATITUDE);
+  const [longitude, setLongitude] = useState(LONGITUDE);
+  const [coordinate, setCoordinate] = useState(
+    new AnimatedRegion({
       latitude: LATITUDE,
       longitude: LONGITUDE,
-      coordinate: new AnimatedRegion({
-        latitude: LATITUDE,
-        longitude: LONGITUDE,
-        latitudeDelta: 0,
-        longitudeDelta: 0,
-      }),
-    };
+      latitudeDelta: 0,
+      longitudeDelta: 0,
+    }),
+  );
+  const [watchId, setWatchId] = useState();
 
-  componentDidMount() {
-    this.watchLocation();
-  }
+  useEffect(() => {
+    watchLocation();
 
+    return Geolocation.clearWatch(watchId);
+  }, []);
 
-  componentWillUnmount() {
-    Geolocation.clearWatch(this.watchID);
-  }
-
-  watchLocation = () => {
+  const watchLocation = () => {
     Permissions.request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-    const {coordinate} = this.state;
 
-    this.watchID = Geolocation.watchPosition(
+    const watchID = Geolocation.watchPosition(
       position => {
-        console.log(position);
         const {latitude, longitude} = position.coords;
+        console.log(latitude, longitude);
 
         const newCoordinate = {
           latitude,
@@ -68,10 +62,9 @@ export default class App extends React.Component {
           coordinate.timing(newCoordinate).start();
         }
 
-        this.setState({
-          latitude,
-          longitude,
-        });
+        setWatchId(watchID);
+        setLatitude(latitude);
+        setLongitude(longitude);
       },
       error => console.log(error),
       {
@@ -83,34 +76,32 @@ export default class App extends React.Component {
     );
   };
 
-  getMapRegion = () => ({
-    latitude: this.state.latitude,
-    longitude: this.state.longitude,
+  const getMapRegion = () => ({
+    latitude: latitude,
+    longitude: longitude,
     latitudeDelta: LATITUDE_DELTA,
     longitudeDelta: LONGITUDE_DELTA,
   });
 
-  render() {
-    return (
-      <SafeAreaView style={{flex: 1}}>
-        <View style={styles.container}>
-          <MapView
-            style={styles.map}
-            showUserLocation
-            followUserLocation
-            loadingEnabled
-            region={this.getMapRegion()}>
-            <Marker.Animated
-              ref={marker => {
-                this.marker = marker;
-              }}
-              coordinate={this.state.coordinate}
-            />
-          </MapView>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  return (
+    <SafeAreaView style={{flex: 1}}>
+      <View style={styles.container}>
+        <MapView
+          style={styles.map}
+          showUserLocation
+          followUserLocation
+          loadingEnabled
+          region={getMapRegion()}>
+          <Marker.Animated
+            ref={marker => {
+              this.marker = marker;
+            }}
+            coordinate={coordinate}
+          />
+        </MapView>
+      </View>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
